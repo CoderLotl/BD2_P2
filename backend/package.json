@@ -1,0 +1,20 @@
+{
+  "name": "bd2-p2-backend",
+  "version": "1.0.0",
+  "description": "API de administracion de items miscelaneos - Parcial 2 - Bases de Datos 2 - UTN",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "seed": "node scripts/seed.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "mongodb": "^6.9.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  }
+}
