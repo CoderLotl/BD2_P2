@@ -800,6 +800,254 @@ async function GetCapacityReport(req, res)
     }
 }
 
+const SEARCHABLE_FIELD_NAMES = {
+    name: 'name',
+    owner: 'owner.name',
+    type: 'type.name'
+};
+
+const SORTABLE_FIELD_NAMES = ['name', 'volume'];
+
+const AGGREGATE_FIELD_NAMES = ['volume', 'capacity'];
+
+const AGGREGATE_OPERATIONS = ['count', 'sum', 'average', 'min', 'max'];
+
+const MONGO_ACCUMULATOR_BY_OPERATION = {
+    sum: '$sum',
+    average: '$avg',
+    min: '$min',
+    max: '$max'
+};
+
+/**
+ * Builds the $lookup/$unwind stages that resolve type_id and owner_id
+ * into their actual type_name/owner_name, so later stages can search
+ * or display those names instead of raw ids.
+ * @returns {object[]}
+ */
+function BuildLookupStages()
+{
+    const lookupTypeStage = {
+        $lookup: {
+            from: ItemTypesManager.COLLECTION_NAME,
+            localField: 'type_id',
+            foreignField: '_id',
+            as: 'type'
+        }
+    };
+
+    const unwindTypeStage = {
+        $unwind: { path: '$type', preserveNullAndEmptyArrays: true }
+    };
+
+    const lookupOwnerStage = {
+        $lookup: {
+            from: OwnersManager.COLLECTION_NAME,
+            localField: 'owner_id',
+            foreignField: '_id',
+            as: 'owner'
+        }
+    };
+
+    const unwindOwnerStage = {
+        $unwind: { path: '$owner', preserveNullAndEmptyArrays: true }
+    };
+
+    return [lookupTypeStage, unwindTypeStage, lookupOwnerStage, unwindOwnerStage];
+}
+
+/**
+ * Builds the $match stage for a text search on name, owner or type,
+ * given the "field" and "text" query params. Both must be given
+ * together, or neither.
+ * @param {*} field
+ * @param {*} text
+ * @returns {{ stage: object | null, error: string | null }}
+ */
+function BuildSearchMatchStage(field, text)
+{
+    const isFieldGiven = typeof field === 'string' && field.trim().length > 0;
+    const isTextGiven = typeof text === 'string' && text.trim().length > 0;
+
+    if (isFieldGiven === false && isTextGiven === false)
+    {
+        return { stage: null, error: null };
+    }
+
+    if (isFieldGiven === false || isTextGiven === false)
+    {
+        return { stage: null, error: 'The "field" and "text" query params must be given together.' };
+    }
+
+    const resolvedFieldName = SEARCHABLE_FIELD_NAMES[field];
+    if (resolvedFieldName === undefined)
+    {
+        const allowedFields = Object.keys(SEARCHABLE_FIELD_NAMES).join(', ');
+        return { stage: null, error: `The "field" value must be one of: ${allowedFields}.` };
+    }
+
+    const escapedText = DataAccessManager.EscapeRegexCharacters(text.trim());
+    const matchStage = { $match: { [resolvedFieldName]: { $regex: escapedText, $options: 'i' } } };
+
+    return { stage: matchStage, error: null };
+}
+
+/**
+ * GET /items/search
+ * Returns items, optionally filtered by a partial text match on name,
+ * owner or type, and optionally sorted by name or volume.
+ * Query params: field?, text?, sort?, direction?
+ */
+async function Search(req, res)
+{
+    try
+    {
+        const field = req.query.field;
+        const text = req.query.text;
+        const sort = req.query.sort;
+        const direction = req.query.direction;
+
+        const matchResult = BuildSearchMatchStage(field, text);
+        if (matchResult.error !== null)
+        {
+            res.status(400).json({ error: matchResult.error });
+            return;
+        }
+
+        const pipeline = BuildLookupStages();
+
+        if (matchResult.stage !== null)
+        {
+            pipeline.push(matchResult.stage);
+        }
+
+        const isSortGiven = typeof sort === 'string' && sort.trim().length > 0;
+        if (isSortGiven === true)
+        {
+            const isSortFieldValid = SORTABLE_FIELD_NAMES.includes(sort);
+            if (isSortFieldValid === false)
+            {
+                const allowedSorts = SORTABLE_FIELD_NAMES.join(', ');
+                res.status(400).json({ error: `The "sort" value must be one of: ${allowedSorts}.` });
+                return;
+            }
+
+            const sortDirection = (direction === 'desc') ? -1 : 1;
+            pipeline.push({ $sort: { [sort]: sortDirection } });
+        }
+
+        const projectStage = {
+            $project: {
+                name: 1,
+                volume: 1,
+                is_container: 1,
+                capacity: 1,
+                container_id: 1,
+                type_name: '$type.name',
+                owner_name: '$owner.name'
+            }
+        };
+        pipeline.push(projectStage);
+
+        const results = await DataAccessManager.Aggregate(COLLECTION_NAME, pipeline);
+        res.status(200).json(results);
+    }
+    catch (error)
+    {
+        console.error(error);
+        res.status(500).json({ error: 'Could not search the items.' });
+    }
+}
+
+/**
+ * GET /items/search/summary
+ * Computes one aggregate statistic (count, sum, average, min or max)
+ * over the items matching an optional text search.
+ * Query params: field?, text?, operation, aggregateField?
+ * aggregateField is required unless operation is "count". When it is
+ * "capacity", the search is automatically restricted to container
+ * items first, since only they ever have a capacity.
+ */
+async function SearchSummary(req, res)
+{
+    try
+    {
+        const field = req.query.field;
+        const text = req.query.text;
+        const operation = req.query.operation;
+        const aggregateField = req.query.aggregateField;
+
+        const isOperationValid = AGGREGATE_OPERATIONS.includes(operation);
+        if (isOperationValid === false)
+        {
+            const allowedOperations = AGGREGATE_OPERATIONS.join(', ');
+            res.status(400).json({ error: `The "operation" value must be one of: ${allowedOperations}.` });
+            return;
+        }
+
+        const matchResult = BuildSearchMatchStage(field, text);
+        if (matchResult.error !== null)
+        {
+            res.status(400).json({ error: matchResult.error });
+            return;
+        }
+
+        const pipeline = BuildLookupStages();
+
+        if (matchResult.stage !== null)
+        {
+            pipeline.push(matchResult.stage);
+        }
+
+        let mongoAccumulator = null;
+
+        if (operation !== 'count')
+        {
+            const isAggregateFieldValid = AGGREGATE_FIELD_NAMES.includes(aggregateField);
+            if (isAggregateFieldValid === false)
+            {
+                const allowedFields = AGGREGATE_FIELD_NAMES.join(', ');
+                res.status(400).json({ error: `The "aggregateField" value must be one of: ${allowedFields} when operation is not "count".` });
+                return;
+            }
+
+            if (aggregateField === 'capacity')
+            {
+                pipeline.push({ $match: { is_container: true } });
+            }
+
+            mongoAccumulator = MONGO_ACCUMULATOR_BY_OPERATION[operation];
+        }
+
+        const groupStage = (operation === 'count')
+            ? { $group: { _id: null, result: { $sum: 1 } } }
+            : { $group: { _id: null, result: { [mongoAccumulator]: `$${aggregateField}` } } };
+        pipeline.push(groupStage);
+
+        const results = await DataAccessManager.Aggregate(COLLECTION_NAME, pipeline);
+
+        if (results.length === 0)
+        {
+            const canDefaultToZero = (operation === 'count' || operation === 'sum');
+            if (canDefaultToZero === true)
+            {
+                res.status(200).json({ result: 0 });
+                return;
+            }
+
+            res.status(400).json({ error: 'No items matched this search, so there is nothing to compute.' });
+            return;
+        }
+
+        res.status(200).json({ result: results[0].result });
+    }
+    catch (error)
+    {
+        console.error(error);
+        res.status(500).json({ error: 'Could not compute the search summary.' });
+    }
+}
+
 module.exports = {
     COLLECTION_NAME,
     GetAll,
@@ -812,5 +1060,7 @@ module.exports = {
     GetEnriched,
     GetStatsByType,
     GetStatsByOwner,
-    GetCapacityReport
+    GetCapacityReport,
+    Search,
+    SearchSummary
 };

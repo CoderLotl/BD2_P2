@@ -6,6 +6,7 @@
     import ItemTypes from './lib/components/ItemTypes.svelte';
     import Items from './lib/components/Items.svelte';
     import Nav from './lib/components/Nav.svelte';
+    import SearchPanel from './lib/components/SearchPanel.svelte';
 
     import background from './assets/backgrounds/1036321_4871.jpg';
 
@@ -41,6 +42,7 @@
         finally
         {
             isLoading = false;
+            console.log('Data loaded:', { itemTypes, owners, items });
         }
     }
 
@@ -53,7 +55,7 @@
 </script>
 
 <main
-    class="w-full h-full px-[15%]"
+    class="w-full h-full px-[15%] pt-4"
     style="background-image: url({background}); background-size: contain; background-position: center; background-attachment: fixed;"
 >
     <div class="px-[10%]">
@@ -79,6 +81,10 @@
 
         {#if activeTab === 'items'}
             <Items {items} />
+        {/if}
+
+        {#if activeTab === 'search'}
+            <SearchPanel />
         {/if}
     {/if}
 </main>

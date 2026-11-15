@@ -4,6 +4,6 @@
     export let owners = [];
 </script>
 
-<div>
+<div class="">
     <Table columns={['Name', 'Kind']} elements={owners} elementsProperties={['name', 'kind']} />
 </div>

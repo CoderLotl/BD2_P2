@@ -168,11 +168,83 @@ async function Delete(req, res)
     }
 }
 
+/**
+ * Builds the $match conditions for a partial (case-insensitive) match
+ * on name. Returns an empty object if no name was given.
+ * @param {*} name
+ * @returns {object}
+ */
+function BuildMatchConditions(name)
+{
+    const matchConditions = {};
+
+    if (typeof name === 'string' && name.trim().length > 0)
+    {
+        const escapedName = DataAccessManager.EscapeRegexCharacters(name.trim());
+        matchConditions.name = { $regex: escapedName, $options: 'i' };
+    }
+
+    return matchConditions;
+}
+
+/**
+ * GET /item-types/search
+ * Returns item types, optionally filtered by a partial (case-insensitive)
+ * match on name. With no query params, returns every item type.
+ * Query params: name?
+ */
+async function Search(req, res)
+{
+    try
+    {
+        const matchConditions = BuildMatchConditions(req.query.name);
+        const matchStage = { $match: matchConditions };
+        const pipeline = [matchStage];
+
+        const results = await DataAccessManager.Aggregate(COLLECTION_NAME, pipeline);
+        res.status(200).json(results);
+    }
+    catch (error)
+    {
+        console.error(error);
+        res.status(500).json({ error: 'Could not search the item types.' });
+    }
+}
+
+/**
+ * GET /item-types/count
+ * Counts item types, optionally filtered by a partial (case-insensitive)
+ * match on name. With no query params, counts every item type.
+ * Query params: name?
+ */
+async function Count(req, res)
+{
+    try
+    {
+        const matchConditions = BuildMatchConditions(req.query.name);
+        const matchStage = { $match: matchConditions };
+        const groupStage = { $group: { _id: null, result: { $sum: 1 } } };
+        const pipeline = [matchStage, groupStage];
+
+        const results = await DataAccessManager.Aggregate(COLLECTION_NAME, pipeline);
+        const count = results.length > 0 ? results[0].result : 0;
+
+        res.status(200).json({ result: count });
+    }
+    catch (error)
+    {
+        console.error(error);
+        res.status(500).json({ error: 'Could not count the item types.' });
+    }
+}
+
 module.exports = {
     COLLECTION_NAME,
     GetAll,
     GetById,
     Create,
     Update,
-    Delete
+    Delete,
+    Search,
+    Count
 };

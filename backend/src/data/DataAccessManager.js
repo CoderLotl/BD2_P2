@@ -209,6 +209,19 @@ async function Aggregate(collectionName, pipeline)
     return results;
 }
 
+/**
+ * Escapes the characters that have special meaning in a regular
+ * expression, so a piece of free text can be used inside a $regex
+ * match without being interpreted as regex syntax.
+ * @param {string} text
+ * @returns {string}
+ */
+function EscapeRegexCharacters(text)
+{
+    const escapedText = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return escapedText;
+}
+
 module.exports = {
     Connect,
     Disconnect,
@@ -220,5 +233,6 @@ module.exports = {
     UpdateOneById,
     DeleteOneById,
     DeleteMany,
-    Aggregate
+    Aggregate,
+    EscapeRegexCharacters
 };

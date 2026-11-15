@@ -168,11 +168,92 @@ async function Delete(req, res)
     }
 }
 
+/**
+ * Builds the $match conditions for a partial (case-insensitive) match
+ * on name and/or an exact match on kind. Leaves out whichever one was
+ * not given.
+ * @param {*} name
+ * @param {*} kind
+ * @returns {object}
+ */
+function BuildMatchConditions(name, kind)
+{
+    const matchConditions = {};
+
+    if (typeof name === 'string' && name.trim().length > 0)
+    {
+        const escapedName = DataAccessManager.EscapeRegexCharacters(name.trim());
+        matchConditions.name = { $regex: escapedName, $options: 'i' };
+    }
+
+    if (typeof kind === 'string' && kind.trim().length > 0)
+    {
+        matchConditions.kind = kind.trim();
+    }
+
+    return matchConditions;
+}
+
+/**
+ * GET /owners/search
+ * Returns owners, optionally filtered by a partial (case-insensitive)
+ * match on name and/or an exact match on kind. With no query params,
+ * returns every owner.
+ * Query params: name?, kind?
+ */
+async function Search(req, res)
+{
+    try
+    {
+        const matchConditions = BuildMatchConditions(req.query.name, req.query.kind);
+        const matchStage = { $match: matchConditions };
+        const pipeline = [matchStage];
+
+        const results = await DataAccessManager.Aggregate(COLLECTION_NAME, pipeline);
+        res.status(200).json(results);
+    }
+    catch (error)
+    {
+        console.error(error);
+        res.status(500).json({ error: 'Could not search the owners.' });
+    }
+}
+
+/**
+ * GET /owners/count
+ * Counts owners, optionally filtered by a partial (case-insensitive)
+ * match on name and/or an exact match on kind. With no query params,
+ * counts every owner.
+ * Query params: name?, kind?
+ */
+async function Count(req, res)
+{
+    try
+    {
+        const matchConditions = BuildMatchConditions(req.query.name, req.query.kind);
+        const matchStage = { $match: matchConditions };
+        const groupStage = { $group: { _id: null, result: { $sum: 1 } } };
+        const pipeline = [matchStage, groupStage];
+
+        const results = await DataAccessManager.Aggregate(COLLECTION_NAME, pipeline);
+        const count = results.length > 0 ? results[0].result : 0;
+
+        res.status(200).json({ result: count });
+    }
+    catch (error)
+    {
+        console.error(error);
+        res.status(500).json({ error: 'Could not count the owners.' });
+    }
+}
+
 module.exports = {
     COLLECTION_NAME,
     GetAll,
     GetById,
     Create,
     Update,
-    Delete
+    Delete,
+    Search,
+    Count
 };

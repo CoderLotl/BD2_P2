@@ -22,6 +22,8 @@ function RegisterRoutes(app)
     });
 
     // #region ITEM TYPES
+    app.get('/item-types/search', ItemTypesManager.Search);
+    app.get('/item-types/count', ItemTypesManager.Count);
     app.get('/item-types', ItemTypesManager.GetAll);
     app.get('/item-types/:id', ItemTypesManager.GetById);
     app.post('/item-types', ItemTypesManager.Create);
@@ -30,6 +32,8 @@ function RegisterRoutes(app)
     // #endregion
 
     // #region OWNERS
+    app.get('/owners/search', OwnersManager.Search);
+    app.get('/owners/count', OwnersManager.Count);
     app.get('/owners', OwnersManager.GetAll);
     app.get('/owners/:id', OwnersManager.GetById);
     app.post('/owners', OwnersManager.Create);
@@ -42,6 +46,8 @@ function RegisterRoutes(app)
     app.get('/items/stats/by-type', ItemsManager.GetStatsByType);
     app.get('/items/stats/by-owner', ItemsManager.GetStatsByOwner);
     app.get('/items/stats/capacity', ItemsManager.GetCapacityReport);
+    app.get('/items/search/summary', ItemsManager.SearchSummary);
+    app.get('/items/search', ItemsManager.Search);
     app.get('/items', ItemsManager.GetAll);
     app.get('/items/:id', ItemsManager.GetById);
     app.post('/items', ItemsManager.Create);
