@@ -7,6 +7,8 @@
     import Items from './lib/components/Items.svelte';
     import Nav from './lib/components/Nav.svelte';
 
+    import background from './assets/backgrounds/1036321_4871.jpg';
+
     let activeTab = 'items';
     let itemTypes = [];
     let owners = [];
@@ -50,7 +52,10 @@
     onMount(LoadAllData);
 </script>
 
-<main class="w-full h-full px-[15%]">
+<main
+    class="w-full h-full px-[15%]"
+    style="background-image: url({background}); background-size: contain; background-position: center; background-attachment: fixed;"
+>
     <div class="px-[10%]">
         <h1 class='text-red-200 text-3xl font-bold mb-4'>
             Misc Items Admin
