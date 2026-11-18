@@ -8,6 +8,7 @@
     export let columns = [];
     export let elements = [];
     export let elementsProperties = [];
+    export let result = '';
     export let emptyMessage = 'No results.';
 
     let expandedElement = null;
@@ -27,14 +28,26 @@
     <div class="bg-black/70 rounded-lg p-4 px-1 pt-0 w-full overflow-y-auto z-2">
         <div
             class="grid w-full"
-            style="grid-template-columns: repeat({columns.length}, minmax(max-content, 1fr));"
+            style="grid-template-columns: repeat({columns.length}, minmax(max-content, 1fr)) {$$slots.actions ? 'max-content' : ''};"
         >
             {#each columns as column}
-                <div class="sticky top-0 bg-[#84191c] text-left border-b border-[#333] p-2 text-[#999] uppercase tracking-wider text-sm pt-8">
+                <div class="sticky top-0 bg-[#84191c] text-left border-b border-[#333] p-2 text-[#999] uppercase tracking-wider text-sm pt-8 z-20">
                     {column}
                 </div>
             {/each}
 
+            {#if $$slots.actions}
+                <div class="sticky top-0 bg-[#84191c] text-left border-b border-[#333] p-2 text-[#999] uppercase tracking-wider text-sm pt-8 z-20">
+                    Actions
+                </div>
+            {/if}
+            <div class="col-span-full text-center">
+                {#if result != ''}
+                    {result}
+                {:else}
+                    Items in collection: {elements.length}
+                {/if}
+            </div>
             {#each elements as element}
                 {#each elementsProperties as elemProp}
                     <!-- svelte-ignore a11y-click-events-have-key-events -->
@@ -46,6 +59,12 @@
                         {element[elemProp] ?? '-'}
                     </div>
                 {/each}
+
+                {#if $$slots.actions}
+                    <div class="text-left border-b border-[#333] p-2">
+                        <slot name="actions" {element}></slot>
+                    </div>
+                {/if}
 
                 {#if expandedElement === element}
                     <div class="border-b border-[#333]" style="grid-column: 1 / -1;" transition:slide>

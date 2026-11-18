@@ -1,6 +1,6 @@
 <script>
     import { onMount, createEventDispatcher  } from 'svelte';
-    import { FetchJson } from './lib/api.js';
+    import { FetchJson, SendJson } from './lib/api.js';
 
     import Owners from './lib/components/Owners.svelte';
     import ItemTypes from './lib/components/ItemTypes.svelte';
@@ -9,6 +9,7 @@
     import SearchPanel from './lib/components/SearchPanel.svelte';
 
     import background from './assets/backgrounds/1036321_4871.jpg';
+    import vines from './assets/resources/liana-ivy.png';
 
     let activeTab = 'items';
     let itemTypes = [];
@@ -46,6 +47,27 @@
         }
     }
 
+    async function SeedDB()
+    {
+        try
+        {
+            const response = await SendJson('/admin/seed', 'POST');
+            if(response)
+            {
+                LoadAllData();
+            }
+        }
+        catch (error)
+        {
+            loadError = error.message;
+        }
+        finally
+        {
+            isLoading = false;
+            console.log('Data loaded:', { itemTypes, owners, items });
+        }
+    }
+
     function handleSwitchTab(e)
     {
         activeTab = e.detail.tab;
@@ -59,17 +81,20 @@
     style="background-image: url({background}); background-size: contain; background-position: center; background-attachment: fixed;"
 >
     <div class="px-[10%]">
-        <h1 class='text-red-200 text-3xl font-bold mb-4'>
-            Misc Items Admin
-        </h1>
+        <div class="mb-2">
+            <h1 class='text-red-200 text-3xl font-bold font-metamorphous'>
+                Misc Items Admin
+            </h1>
+            <div class="w-1/2 h-[40px]" style="background-image: url({vines}); background-repeat: repeat-x; background-size: 150px;">
+
+            </div>
+        </div>
     
-        <Nav {activeTab} {LoadAllData} on:switchTab={handleSwitchTab}/>
+        <Nav {activeTab} {LoadAllData} {SeedDB} on:switchTab={handleSwitchTab}/>
     </div>
 
-    {#if isLoading}
-        <p class="status">Loading...</p>
-    {:else if loadError}
-        <p class="status error">Error: {loadError}</p>
+    {#if loadError}        
+        <p class="status error">Error: {loadError}</p>    
     {:else}
         {#if activeTab === 'item-types'}
             <ItemTypes {itemTypes} />
@@ -80,11 +105,7 @@
         {/if}
 
         {#if activeTab === 'items'}
-            <Items {items} />
-        {/if}
-
-        {#if activeTab === 'search'}
-            <SearchPanel />
+            <Items {items} {LoadAllData} />
         {/if}
     {/if}
 </main>

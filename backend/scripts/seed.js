@@ -1,4 +1,4 @@
-const config = require('../src/config');
+//const config = require('../src/config');
 const DataAccessManager = require('../src/data/DataAccessManager');
 const ItemTypesManager = require('../src/managers/ItemTypesManager');
 const OwnersManager = require('../src/managers/OwnersManager');
@@ -190,10 +190,8 @@ async function SeedRegularItems(typeIdByName, ownerIds, containers)
  * then fills item_types, owners, containers, and regular items.
  * @returns {Promise<void>}
  */
-async function Run()
+async function Run(req, res)
 {
-    await DataAccessManager.Connect(config.MONGODB_URI, config.MONGODB_DB_NAME);
-
     console.log('Clearing existing data...');
     await ClearCollections();
 
@@ -210,7 +208,7 @@ async function Run()
     await SeedRegularItems(typeIdByName, ownerIds, containers);
 
     console.log('Seed finished.');
-    await DataAccessManager.Disconnect();
+    res.status(200).json({});
 }
 
-Run();
+module.exports = { Run };

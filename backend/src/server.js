@@ -9,6 +9,7 @@ const DataAccessManager = require('./data/DataAccessManager');
 const ItemTypesManager = require('./managers/ItemTypesManager');
 const OwnersManager = require('./managers/OwnersManager');
 const ItemsManager = require('./managers/ItemsManager');
+const Seed = require('../scripts/seed');
 
 /**
  * Registers every API route on the given Express instance.
@@ -20,6 +21,10 @@ function RegisterRoutes(app)
     {
         res.status(200).json({ status: 'OK' });
     });
+
+    // #region API ADMIN
+    app.post('/admin/seed', Seed.Run);
+    // #endregion
 
     // #region ITEM TYPES
     app.get('/item-types/search', ItemTypesManager.Search);
