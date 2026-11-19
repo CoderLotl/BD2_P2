@@ -1,6 +1,7 @@
 <script>
     import { onMount, createEventDispatcher  } from 'svelte';
     import { FetchJson, SendJson } from './lib/api.js';
+    import toast, { Toaster } from 'svelte-french-toast';
 
     import Owners from './lib/components/Owners.svelte';
     import ItemTypes from './lib/components/ItemTypes.svelte';
@@ -16,15 +17,13 @@
     let owners = [];
     let items = [];
     let isLoading = true;
-    let loadError = null;
-    let dispatch = createEventDispatcher();
+    let dispatch = createEventDispatcher();    
 
     async function LoadAllData()
     {
         try
         {
             isLoading = true;
-            loadError = null;
 
             const results = await Promise.all([
                 FetchJson('/item-types'),
@@ -38,7 +37,7 @@
         }
         catch (error)
         {
-            loadError = error.message;
+            toast.error(`Error: ${error.message}`);
         }
         finally
         {
@@ -59,7 +58,7 @@
         }
         catch (error)
         {
-            loadError = error.message;
+            toast.error(`Error: ${error.message}`);            
         }
         finally
         {
@@ -72,14 +71,18 @@
     {
         activeTab = e.detail.tab;
     }
-
-    onMount(LoadAllData);
+    
+    onMount(() =>
+    {
+        LoadAllData();		
+	});
 </script>
 
 <main
     class="w-full h-full px-[15%] pt-4"
     style="background-image: url({background}); background-size: contain; background-position: center; background-attachment: fixed;"
 >
+    <Toaster />
     <div class="px-[10%]">
         <div class="mb-2">
             <h1 class='text-red-200 text-3xl font-bold font-metamorphous'>
@@ -92,20 +95,16 @@
     
         <Nav {activeTab} {LoadAllData} {SeedDB} on:switchTab={handleSwitchTab}/>
     </div>
+    
+    {#if activeTab === 'item-types'}
+        <ItemTypes {itemTypes} />
+    {/if}
 
-    {#if loadError}        
-        <p class="status error">Error: {loadError}</p>    
-    {:else}
-        {#if activeTab === 'item-types'}
-            <ItemTypes {itemTypes} />
-        {/if}
+    {#if activeTab === 'owners'}
+        <Owners {owners} />
+    {/if}
 
-        {#if activeTab === 'owners'}
-            <Owners {owners} />
-        {/if}
-
-        {#if activeTab === 'items'}
-            <Items {items} {LoadAllData} />
-        {/if}
+    {#if activeTab === 'items'}
+        <Items {items} {LoadAllData} />
     {/if}
 </main>

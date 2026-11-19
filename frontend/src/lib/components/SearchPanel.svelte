@@ -2,10 +2,12 @@
     import { createEventDispatcher } from 'svelte';
     import { FetchJson } from '../api.js';
     import Table from './Table.svelte';
+    import Blob from './Blob.svelte';
 
     export let selectedCollection = 'items';
 
     let dispatch = createEventDispatcher();
+    let slimeSize = '60';
 
     // --- Owners search state ---
     let ownersNameInput = '';
@@ -251,6 +253,7 @@
                 {#if ownersCountResult !== null}
                     <span class="text-slate-200">Count: {ownersCountResult}</span>
                 {/if}
+                <Blob width={slimeSize}/>
             </div>
         {/if}
 
@@ -278,6 +281,7 @@
                 {#if itemTypesCountResult !== null}
                     <span class="text-slate-200">Count: {itemTypesCountResult}</span>
                 {/if}
+                <Blob width={slimeSize}/>
             </div>
         {/if}
 
@@ -365,7 +369,8 @@
                     on:click={Reset}>
                     Reset
                 </button>
+                <Blob width={slimeSize}/>
             </div>
-        {/if}
+        {/if}        
     </div>
 </div>
